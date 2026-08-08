@@ -1,4 +1,5 @@
 import { BuildStatus } from "./build";
+import { DeploymentStatus } from "./deployment";
 
 export type ModelProvider = "claude" | "gpt" | "gemini";
 export type GenerationStatus = "IDLE" | "GENERATING" | "COMPLETED" | "FAILED";
@@ -30,4 +31,7 @@ export interface Project {
   buildStatus: BuildStatus;
   buildError?: string;
   repairAttempts: number;
+  deploymentStatus: DeploymentStatus;
+  deployUrl?: string;
+  deployError?: string;
 }

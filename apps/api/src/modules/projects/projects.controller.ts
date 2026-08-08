@@ -17,6 +17,7 @@ export function createProject(req: Request, res: Response, next: NextFunction) {
       generationStatus: "IDLE",
       buildStatus: "NOT_STARTED",
       repairAttempts: 0,
+      deploymentStatus: "IDLE",
       files: [],
     });
     res.status(201).json({ project });

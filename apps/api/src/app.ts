@@ -7,6 +7,7 @@ import { sandboxRouter } from "./modules/sandbox/sandbox.routes";
 import { buildRouter } from "./modules/build/build.routes";
 import { eventsRouter } from "./modules/events/events.routes";
 import { errorHandler } from "./common/errors/error-handler";
+import { deploymentRouter } from "./modules/deployment/deployment.routes";
 
 export function createApp() {
   const app = express();
@@ -20,6 +21,7 @@ export function createApp() {
   app.use("/api/projects/:id/sandbox", sandboxRouter);
   app.use("/api/projects/:id/build", buildRouter);
   app.use("/api/projects/:id/events", eventsRouter);
+  app.use("/api/projects/:id/deploy", deploymentRouter);
   app.get("/api/projects/:id/files", listFiles);
   app.get("/api/projects/:id/files/*splat", getFile);
 

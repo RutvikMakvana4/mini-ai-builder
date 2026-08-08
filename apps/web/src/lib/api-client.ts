@@ -21,3 +21,9 @@ export async function getProject(id: string) {
   if (!res.ok) throw new Error("Project not found");
   return (await res.json()).project;
 }
+
+export async function deployProject(id: string) {
+  const res = await fetch(`${API_URL}/api/projects/${id}/deploy`, { method: "POST" });
+  if (!res.ok) throw new Error((await res.json()).error?.message ?? "Deploy failed");
+  return (await res.json()).project;
+}
