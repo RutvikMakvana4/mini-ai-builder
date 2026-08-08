@@ -30,6 +30,12 @@ function resolveModel(model: ModelProvider): string {
   return MODEL_MAP[model] || DEFAULT_MODEL;
 }
 
+// Without this, a bad model slug or a slow/rate-limited provider can leave
+// generateObject() pending indefinitely — the request never resolves OR
+// rejects, so the caller's try/catch never fires and the project silently
+// sits at buildStatus: NOT_STARTED forever with no error surfaced anywhere.
+const GENERATION_TIMEOUT_MS = 120_000;
+
 const SYSTEM_PROMPT = `You are an expert Next.js + Tailwind CSS engineer.
 Generate a complete, runnable Next.js App Router project for the user's request.
 
@@ -39,25 +45,40 @@ Rules:
 - Always include app/layout.tsx, app/page.tsx, app/globals.css, and package.json
 - Break the UI into components under components/
 - Do not use any external UI libraries beyond React and Tailwind
-- Return complete file contents, not snippets`;
+- Return complete file contents, not snippets
+
+CRITICAL OUTPUT FORMAT:
+Respond with ONLY a single JSON object matching the required schema.
+Do NOT include any prose, explanation, commentary, markdown headers, or
+code fences before, after, or around the JSON. Do NOT explain what you are
+building or how to run it — the JSON object's "files" array is the entire
+response. Any text outside the JSON object will cause a parsing failure.`;
 
 export class OpenRouterAIService implements AIService {
   async generateApplication(
     prompt: string,
     model: ModelProvider,
   ): Promise<GeneratedProject> {
+    const resolvedModel = resolveModel(model);
+    console.log(`[ai] generateApplication starting (model=${resolvedModel})`);
     try {
       const { object } = await generateObject({
-        model: openrouter(resolveModel(model)),
+        model: openrouter(resolvedModel),
         schema: generatedProjectSchema,
         system: SYSTEM_PROMPT,
         prompt: `Build this application: ${prompt}`,
+        abortSignal: AbortSignal.timeout(GENERATION_TIMEOUT_MS),
       });
+      console.log(`[ai] generateApplication succeeded (${object.files.length} files)`);
       return object;
     } catch (err) {
+      console.error(`[ai] generateApplication failed (model=${resolvedModel}):`, err);
+      const timedOut = err instanceof Error && err.name === "TimeoutError";
       throw new AppError(
         "LLM_GENERATION_FAILED",
-        "Failed to generate application",
+        timedOut
+          ? `AI generation timed out after ${GENERATION_TIMEOUT_MS / 1000}s — check OPENROUTER_MODEL is a valid model slug and OPENROUTER_API_KEY is valid`
+          : "Failed to generate application",
         502,
         err instanceof Error ? err.message : String(err),
       );
@@ -69,13 +90,21 @@ export class OpenRouterAIService implements AIService {
     buildError: string,
     model: ModelProvider,
   ): Promise<Patch> {
+    const resolvedModel = resolveModel(model);
+    console.log(`[ai] repairApplication starting (model=${resolvedModel})`);
     try {
       const { object } = await generateObject({
-        model: openrouter(resolveModel(model)),
+        model: openrouter(resolvedModel),
         schema: patchSchema,
         system: `You are an expert Next.js + Tailwind CSS engineer fixing a broken build.
 Return ONLY the files that need to be created, updated, or deleted to fix the error.
-Do not return unrelated files. Keep changes minimal and targeted.`,
+Do not return unrelated files. Keep changes minimal and targeted.
+
+CRITICAL OUTPUT FORMAT:
+Respond with ONLY a single JSON object matching the required schema.
+Do NOT include any prose, explanation, commentary, markdown headers, or
+code fences before, after, or around the JSON. Any text outside the JSON
+object will cause a parsing failure.`,
         prompt: `Current project files:
 ${JSON.stringify(files, null, 2)}
 
@@ -83,12 +112,18 @@ Build error:
 ${buildError}
 
 Return the minimal set of changes needed to fix this build error.`,
+        abortSignal: AbortSignal.timeout(GENERATION_TIMEOUT_MS),
       });
+      console.log(`[ai] repairApplication succeeded (${object.changes.length} changes)`);
       return object;
     } catch (err) {
+      console.error(`[ai] repairApplication failed (model=${resolvedModel}):`, err);
+      const timedOut = err instanceof Error && err.name === "TimeoutError";
       throw new AppError(
         "LLM_REPAIR_FAILED",
-        "Failed to repair application",
+        timedOut
+          ? `AI repair timed out after ${GENERATION_TIMEOUT_MS / 1000}s`
+          : "Failed to repair application",
         502,
         err instanceof Error ? err.message : String(err),
       );

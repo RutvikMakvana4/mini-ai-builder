@@ -21,6 +21,14 @@ function buildStatusVariant(
   return "secondary";
 }
 
+function generationStatusVariant(
+  status: string,
+): "default" | "secondary" | "destructive" {
+  if (status === "COMPLETED") return "default";
+  if (status === "FAILED") return "destructive";
+  return "secondary";
+}
+
 function isDeployDisabled(project: {
   buildStatus: string;
   deploymentStatus: string;
@@ -114,6 +122,13 @@ export default function WorkspacePage() {
       <header className="flex items-center justify-between px-4 py-3 border-b">
         <div className="flex items-center gap-3">
           <h1 className="font-semibold">{project.name}</h1>
+          {project.generationStatus !== "COMPLETED" && (
+            <Badge variant={generationStatusVariant(project.generationStatus)}>
+              {project.generationStatus === "GENERATING"
+                ? "Generating..."
+                : project.generationStatus}
+            </Badge>
+          )}
           <Badge variant={buildStatusVariant(project.buildStatus)}>
             {project.buildStatus}
           </Badge>
