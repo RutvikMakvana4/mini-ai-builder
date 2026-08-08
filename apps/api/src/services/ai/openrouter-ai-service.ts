@@ -1,12 +1,18 @@
 import { generateObject } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { AIService } from "./ai-service";
 import {
   generatedProjectSchema,
   GeneratedProject,
 } from "../../common/validation/generation";
-import { AppError } from "../../common/errors/app-error";
 import { patchSchema, Patch } from "../../common/validation/repair";
+import { AppError } from "../../common/errors/app-error";
+
+const openrouter = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
+
+const MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
 
 const SYSTEM_PROMPT = `You are an expert Next.js + Tailwind CSS engineer.
 Generate a complete, runnable Next.js App Router project for the user's request.
@@ -19,11 +25,11 @@ Rules:
 - Do not use any external UI libraries beyond React and Tailwind
 - Return complete file contents, not snippets`;
 
-export class AnthropicAIService implements AIService {
+export class OpenRouterAIService implements AIService {
   async generateApplication(prompt: string): Promise<GeneratedProject> {
     try {
       const { object } = await generateObject({
-        model: anthropic("claude-sonnet-5"),
+        model: openrouter(MODEL),
         schema: generatedProjectSchema,
         system: SYSTEM_PROMPT,
         prompt: `Build this application: ${prompt}`,
@@ -45,7 +51,7 @@ export class AnthropicAIService implements AIService {
   ): Promise<Patch> {
     try {
       const { object } = await generateObject({
-        model: anthropic("claude-sonnet-5"),
+        model: openrouter(MODEL),
         schema: patchSchema,
         system: `You are an expert Next.js + Tailwind CSS engineer fixing a broken build.
 Return ONLY the files that need to be created, updated, or deleted to fix the error.
