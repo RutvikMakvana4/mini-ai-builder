@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,9 @@ import { CodeEditor } from "@/components/workspace/code-editor";
 import { PreviewPanel } from "@/components/workspace/preview-panel";
 import { LogsPanel } from "@/components/workspace/logs-panel";
 import { useProjectEvents } from "@/lib/use-project-events";
-import { deployProject } from "@/lib/api-client";
+import { deployProject, updateFile } from "@/lib/api-client";
+
+const SAVE_DEBOUNCE_MS = 800;
 
 function buildStatusVariant(
   status: string,
@@ -36,6 +38,19 @@ export default function WorkspacePage() {
   const { project, logs } = useProjectEvents(projectId ?? "");
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [isDeploying, setIsDeploying] = useState(false);
+  // Local overrides for in-progress edits, keyed by file path. Lets typing
+  // feel instant while saves to the backend happen debounced in the background.
+  const [editedFiles, setEditedFiles] = useState<Record<string, string>>({});
+  const [savingPaths, setSavingPaths] = useState<Record<string, boolean>>({});
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(() => {
+    // Clear pending timers on unmount
+    const timers = saveTimers.current;
+    return () => {
+      Object.values(timers).forEach((t) => clearTimeout(t));
+    };
+  }, []);
 
   if (!project) {
     return (
@@ -45,8 +60,29 @@ export default function WorkspacePage() {
     );
   }
 
-  const files = project.files ?? [];
-  const selectedFile = files.find((file) => file.path === selectedPath) ?? files[0];
+  const files = (project.files ?? []).map((file) =>
+    editedFiles[file.path] !== undefined
+      ? { ...file, content: editedFiles[file.path] }
+      : file,
+  );
+  const selectedFile =
+    files.find((file) => file.path === selectedPath) ?? files[0];
+
+  function handleFileChange(path: string, content: string) {
+    setEditedFiles((prev) => ({ ...prev, [path]: content }));
+
+    if (saveTimers.current[path]) clearTimeout(saveTimers.current[path]);
+    saveTimers.current[path] = setTimeout(async () => {
+      setSavingPaths((prev) => ({ ...prev, [path]: true }));
+      try {
+        await updateFile(project!.id, path, content);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setSavingPaths((prev) => ({ ...prev, [path]: false }));
+      }
+    }, SAVE_DEBOUNCE_MS);
+  }
 
   const logEvents = logs.map((l, i) => ({
     id: String(i),
@@ -123,8 +159,13 @@ export default function WorkspacePage() {
           selectedPath={selectedFile?.path ?? ""}
           onSelect={setSelectedPath}
         />
-        <div className="border-r min-h-0">
-          <CodeEditor file={selectedFile} />
+        <div className="border-r min-h-0 relative">
+          <CodeEditor file={selectedFile} onChange={handleFileChange} />
+          {selectedFile && savingPaths[selectedFile.path] && (
+            <span className="absolute top-2 right-3 text-xs text-muted-foreground">
+              Saving...
+            </span>
+          )}
         </div>
         <div className="min-h-0">
           <PreviewPanel previewUrl={project.previewUrl} />

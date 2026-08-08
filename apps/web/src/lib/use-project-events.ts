@@ -18,12 +18,18 @@ export function useProjectEvents(projectId: string) {
 
   useEffect(() => {
     if (!projectId) {
-      setProject(null);
-      setLogs([]);
+      // Defer to a microtask so this reset happens in a callback rather
+      // than synchronously in the effect body (avoids cascading renders).
+      queueMicrotask(() => {
+        setProject(null);
+        setLogs([]);
+      });
       return;
     }
 
-    const source = new EventSource(`${API_URL}/api/projects/${projectId}/events`);
+    const source = new EventSource(
+      `${API_URL}/api/projects/${projectId}/events`,
+    );
     sourceRef.current = source;
 
     const handle = (raw: MessageEvent) => {
@@ -49,14 +55,18 @@ export function useProjectEvents(projectId: string) {
       "repair.completed",
       "preview.ready",
     ];
-    eventTypes.forEach((type) => source.addEventListener(type, handle as EventListener));
+    eventTypes.forEach((type) =>
+      source.addEventListener(type, handle as EventListener),
+    );
 
     source.onerror = () => {
       // EventSource auto-reconnects; nothing to do here for now
     };
 
     return () => {
-      eventTypes.forEach((type) => source.removeEventListener(type, handle as EventListener));
+      eventTypes.forEach((type) =>
+        source.removeEventListener(type, handle as EventListener),
+      );
       source.close();
     };
   }, [projectId]);

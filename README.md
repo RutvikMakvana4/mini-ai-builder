@@ -33,7 +33,16 @@ pnpm dev:web # http://localhost:3000
 **apps/api/.env**
 \`\`\`
 PORT=4000
-ANTHROPIC_API_KEY=
+OPENROUTER_API_KEY=
+OPENROUTER_MODEL=openrouter/free
+
+# Optional: override the model used per UI selection.
+
+# Any left unset fall back to OPENROUTER_MODEL above.
+
+OPENROUTER_MODEL_CLAUDE=
+OPENROUTER_MODEL_GPT=
+OPENROUTER_MODEL_GEMINI=
 VERCEL_TOKEN=
 VERCEL_TEAM_ID=
 \`\`\`

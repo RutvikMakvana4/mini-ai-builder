@@ -10,7 +10,13 @@ const LANGUAGE_MAP: Record<NonNullable<ProjectFile["language"]>, string> = {
   css: "css",
 };
 
-export function CodeEditor({ file }: { file: ProjectFile | undefined }) {
+export function CodeEditor({
+  file,
+  onChange,
+}: {
+  file: ProjectFile | undefined;
+  onChange?: (path: string, content: string) => void;
+}) {
   if (!file) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
@@ -26,6 +32,7 @@ export function CodeEditor({ file }: { file: ProjectFile | undefined }) {
       path={file.path}
       language={file.language ? LANGUAGE_MAP[file.language] : "plaintext"}
       value={file.content}
+      onChange={(value) => onChange?.(file.path, value ?? "")}
       options={{ minimap: { enabled: false }, fontSize: 13 }}
     />
   );

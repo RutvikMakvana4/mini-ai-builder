@@ -2,7 +2,11 @@ import express from "express";
 import cors from "cors";
 import { projectsRouter } from "./modules/projects/projects.routes";
 import { generationRouter } from "./modules/generation/generation.routes";
-import { listFiles, getFile } from "./modules/projects/files.controller";
+import {
+  listFiles,
+  getFile,
+  updateFile,
+} from "./modules/projects/files.controller";
 import { sandboxRouter } from "./modules/sandbox/sandbox.routes";
 import { buildRouter } from "./modules/build/build.routes";
 import { eventsRouter } from "./modules/events/events.routes";
@@ -24,6 +28,7 @@ export function createApp() {
   app.use("/api/projects/:id/deploy", deploymentRouter);
   app.get("/api/projects/:id/files", listFiles);
   app.get("/api/projects/:id/files/*splat", getFile);
+  app.put("/api/projects/:id/files/*splat", updateFile);
 
   app.use(errorHandler);
   return app;

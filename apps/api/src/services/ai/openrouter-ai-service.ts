@@ -7,12 +7,28 @@ import {
 } from "../../common/validation/generation";
 import { patchSchema, Patch } from "../../common/validation/repair";
 import { AppError } from "../../common/errors/app-error";
+import { ModelProvider } from "../../common/types/project";
 
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
 });
 
-const MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
+// Fallback used for any provider that doesn't have its own override set.
+const DEFAULT_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
+
+// Maps the UI's model picker to real OpenRouter model IDs. Each can be
+// overridden independently via env vars; anything left unset falls back to
+// DEFAULT_MODEL so a single-model setup (per the PRD's "one provider" scope)
+// keeps working out of the box.
+const MODEL_MAP: Record<ModelProvider, string> = {
+  claude: process.env.OPENROUTER_MODEL_CLAUDE || DEFAULT_MODEL,
+  gpt: process.env.OPENROUTER_MODEL_GPT || DEFAULT_MODEL,
+  gemini: process.env.OPENROUTER_MODEL_GEMINI || DEFAULT_MODEL,
+};
+
+function resolveModel(model: ModelProvider): string {
+  return MODEL_MAP[model] || DEFAULT_MODEL;
+}
 
 const SYSTEM_PROMPT = `You are an expert Next.js + Tailwind CSS engineer.
 Generate a complete, runnable Next.js App Router project for the user's request.
@@ -26,10 +42,13 @@ Rules:
 - Return complete file contents, not snippets`;
 
 export class OpenRouterAIService implements AIService {
-  async generateApplication(prompt: string): Promise<GeneratedProject> {
+  async generateApplication(
+    prompt: string,
+    model: ModelProvider,
+  ): Promise<GeneratedProject> {
     try {
       const { object } = await generateObject({
-        model: openrouter(MODEL),
+        model: openrouter(resolveModel(model)),
         schema: generatedProjectSchema,
         system: SYSTEM_PROMPT,
         prompt: `Build this application: ${prompt}`,
@@ -48,10 +67,11 @@ export class OpenRouterAIService implements AIService {
   async repairApplication(
     files: { path: string; content: string }[],
     buildError: string,
+    model: ModelProvider,
   ): Promise<Patch> {
     try {
       const { object } = await generateObject({
-        model: openrouter(MODEL),
+        model: openrouter(resolveModel(model)),
         schema: patchSchema,
         system: `You are an expert Next.js + Tailwind CSS engineer fixing a broken build.
 Return ONLY the files that need to be created, updated, or deleted to fix the error.
