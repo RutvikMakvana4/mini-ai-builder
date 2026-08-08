@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { projectsStore } from "../projects/projects.store";
 import { runBuildPipeline } from "./build.service";
+import { eventBus } from "../events/event-bus";
 import { AppError } from "../../common/errors/app-error";
 
 export async function triggerBuild(req: Request, res: Response, next: NextFunction) {
@@ -10,11 +11,13 @@ export async function triggerBuild(req: Request, res: Response, next: NextFuncti
     return next(new AppError("NO_FILES", "Generate the project before building", 400));
   }
 
+  res.status(202).json({ project });
+
   try {
-    const record = await runBuildPipeline(project);
-    const updated = projectsStore.findById(project.id);
-    res.json({ project: updated, build: record });
+    await runBuildPipeline(project);
   } catch (err) {
-    next(err);
+    eventBus.emitProjectEvent(project.id, "build.failed", {
+      message: err instanceof Error ? err.message : String(err),
+    });
   }
 }

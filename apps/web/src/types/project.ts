@@ -24,7 +24,6 @@ export type DeploymentStatus =
 export interface ProjectFile {
   path: string;
   content: string;
-  language: "typescript" | "typescriptreact" | "json" | "css";
 }
 
 export interface LogEvent {
