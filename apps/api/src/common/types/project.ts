@@ -1,3 +1,5 @@
+import { BuildStatus } from "./build";
+
 export type ModelProvider = "claude" | "gpt" | "gemini";
 export type GenerationStatus = "IDLE" | "GENERATING" | "COMPLETED" | "FAILED";
 
@@ -25,4 +27,7 @@ export interface Project {
   sandboxId?: string;
   sandboxStatus: SandboxStatus;
   previewUrl?: string;
+  buildStatus: BuildStatus;
+  buildError?: string;
+  repairAttempts: number;
 }

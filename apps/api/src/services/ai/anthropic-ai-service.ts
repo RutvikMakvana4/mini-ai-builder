@@ -6,6 +6,7 @@ import {
   GeneratedProject,
 } from "../../common/validation/generation";
 import { AppError } from "../../common/errors/app-error";
+import { patchSchema, Patch } from "../../common/validation/repair";
 
 const SYSTEM_PROMPT = `You are an expert Next.js + Tailwind CSS engineer.
 Generate a complete, runnable Next.js App Router project for the user's request.
@@ -41,21 +42,21 @@ export class AnthropicAIService implements AIService {
   async repairApplication(
     files: { path: string; content: string }[],
     buildError: string,
-  ): Promise<GeneratedProject> {
+  ): Promise<Patch> {
     try {
       const { object } = await generateObject({
         model: anthropic("claude-sonnet-5"),
-        schema: generatedProjectSchema,
-        system: SYSTEM_PROMPT,
-        prompt: `The project below failed to build.
-
-Current files:
+        schema: patchSchema,
+        system: `You are an expert Next.js + Tailwind CSS engineer fixing a broken build.
+Return ONLY the files that need to be created, updated, or deleted to fix the error.
+Do not return unrelated files. Keep changes minimal and targeted.`,
+        prompt: `Current project files:
 ${JSON.stringify(files, null, 2)}
 
 Build error:
 ${buildError}
 
-Fix the application. Return the COMPLETE, corrected set of files.`,
+Return the minimal set of changes needed to fix this build error.`,
       });
       return object;
     } catch (err) {

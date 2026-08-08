@@ -3,16 +3,21 @@ export interface SandboxHandle {
   previewUrl: string;
 }
 
+export interface SandboxStepResult {
+  command: string;
+  exitCode: number;
+  log: string;
+  durationMs: number;
+}
+
 export interface SandboxAdapter {
   create(projectId: string): Promise<SandboxHandle>;
   writeFiles(
     sandboxId: string,
     files: { path: string; content: string }[],
   ): Promise<void>;
-  installDependencies(
-    sandboxId: string,
-  ): Promise<{ success: boolean; log: string }>;
-  runBuild(sandboxId: string): Promise<{ success: boolean; log: string }>;
+  installDependencies(sandboxId: string): Promise<SandboxStepResult>;
+  runBuild(sandboxId: string): Promise<SandboxStepResult>;
   startApplication(
     sandboxId: string,
     port: number,

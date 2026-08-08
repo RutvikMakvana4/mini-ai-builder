@@ -1,4 +1,5 @@
 import { GeneratedProject } from "../../common/validation/generation";
+import { Patch } from "../../common/validation/repair";
 import { ModelProvider } from "../../common/types/project";
 
 export interface AIService {
@@ -10,5 +11,5 @@ export interface AIService {
     files: { path: string; content: string }[],
     buildError: string,
     model: ModelProvider,
-  ): Promise<GeneratedProject>;
+  ): Promise<Patch>;
 }

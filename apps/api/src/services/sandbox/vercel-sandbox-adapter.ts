@@ -1,5 +1,9 @@
 import { Sandbox } from "@vercel/sandbox";
-import { SandboxAdapter, SandboxHandle } from "./sandbox-adapter";
+import {
+  SandboxAdapter,
+  SandboxHandle,
+  SandboxStepResult,
+} from "./sandbox-adapter";
 import { AppError } from "../../common/errors/app-error";
 
 const PREVIEW_PORT = 3000;
@@ -62,20 +66,24 @@ export class VercelSandboxAdapter implements SandboxAdapter {
     );
   }
 
-  async installDependencies(sandboxId: string) {
+  async installDependencies(sandboxId: string): Promise<SandboxStepResult> {
+    const start = Date.now();
     const sandbox = this.getSandbox(sandboxId);
-    const result = await sandbox.runCommand({
-      cmd: "npm",
-      args: ["install"],
-    });
+    const result = await sandbox.runCommand({ cmd: "npm", args: ["install"] });
     const stdout = await result.stdout();
     const stderr = await result.stderr();
     appendLog(sandboxId, stdout);
     appendLog(sandboxId, stderr);
-    return { success: result.exitCode === 0, log: stdout + stderr };
+    return {
+      command: "npm install",
+      exitCode: result.exitCode,
+      log: stdout + stderr,
+      durationMs: Date.now() - start,
+    };
   }
 
-  async runBuild(sandboxId: string) {
+  async runBuild(sandboxId: string): Promise<SandboxStepResult> {
+    const start = Date.now();
     const sandbox = this.getSandbox(sandboxId);
     const result = await sandbox.runCommand({
       cmd: "npm",
@@ -85,7 +93,12 @@ export class VercelSandboxAdapter implements SandboxAdapter {
     const stderr = await result.stderr();
     appendLog(sandboxId, stdout);
     appendLog(sandboxId, stderr);
-    return { success: result.exitCode === 0, log: stdout + stderr };
+    return {
+      command: "npm run build",
+      exitCode: result.exitCode,
+      log: stdout + stderr,
+      durationMs: Date.now() - start,
+    };
   }
 
   async startApplication(sandboxId: string, port: number) {

@@ -15,6 +15,8 @@ export function createProject(req: Request, res: Response, next: NextFunction) {
       createdAt: new Date().toISOString(),
       sandboxStatus: "NONE",
       generationStatus: "IDLE",
+      buildStatus: "NOT_STARTED",
+      repairAttempts: 0,
       files: [],
     });
     res.status(201).json({ project });
