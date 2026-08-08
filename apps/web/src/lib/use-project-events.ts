@@ -17,6 +17,12 @@ export function useProjectEvents(projectId: string) {
   const sourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
+    if (!projectId) {
+      setProject(null);
+      setLogs([]);
+      return;
+    }
+
     const source = new EventSource(`${API_URL}/api/projects/${projectId}/events`);
     sourceRef.current = source;
 

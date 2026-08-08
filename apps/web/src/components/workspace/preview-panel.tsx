@@ -16,7 +16,7 @@ export function PreviewPanel({ previewUrl }: { previewUrl?: string }) {
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between px-3 py-2 border-b text-xs">
         <span className="text-muted-foreground truncate">{previewUrl}</span>
-        <Button size="sm" variant="outline" asChild>
+        <Button size="sm" variant="outline">
           <a href={previewUrl} target="_blank" rel="noreferrer">
             Open Preview
           </a>

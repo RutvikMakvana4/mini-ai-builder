@@ -3,7 +3,7 @@
 import Editor from "@monaco-editor/react";
 import { ProjectFile } from "@/types/project";
 
-const LANGUAGE_MAP: Record<ProjectFile["language"], string> = {
+const LANGUAGE_MAP: Record<NonNullable<ProjectFile["language"]>, string> = {
   typescript: "typescript",
   typescriptreact: "typescript",
   json: "json",
@@ -24,7 +24,7 @@ export function CodeEditor({ file }: { file: ProjectFile | undefined }) {
       height="100%"
       theme="vs-dark"
       path={file.path}
-      language={LANGUAGE_MAP[file.language]}
+      language={file.language ? LANGUAGE_MAP[file.language] : "plaintext"}
       value={file.content}
       options={{ minimap: { enabled: false }, fontSize: 13 }}
     />

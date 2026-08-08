@@ -71,7 +71,7 @@ export class VercelDeploymentAdapter implements DeploymentAdapter {
     });
 
     if (!res.ok) {
-      const errBody = await res.json().catch(() => ({}));
+      const errBody = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
       throw new AppError(
         "DEPLOYMENT_FAILED",
         "Failed to create Vercel deployment",
@@ -80,11 +80,11 @@ export class VercelDeploymentAdapter implements DeploymentAdapter {
       );
     }
 
-    const data = await res.json();
+    const data = (await res.json()) as { id?: string; url?: string; readyState?: string };
     return {
-      deploymentId: data.id,
-      url: `https://${data.url}`,
-      status: readyStateToStatus(data.readyState),
+      deploymentId: data.id ?? "",
+      url: data.url ? `https://${data.url}` : "",
+      status: readyStateToStatus(data.readyState ?? "QUEUED"),
     };
   }
 
@@ -105,11 +105,11 @@ export class VercelDeploymentAdapter implements DeploymentAdapter {
       );
     }
 
-    const data = await res.json();
+    const data = (await res.json()) as { id?: string; url?: string; readyState?: string };
     return {
-      deploymentId: data.id,
-      url: `https://${data.url}`,
-      status: readyStateToStatus(data.readyState),
+      deploymentId: data.id ?? "",
+      url: data.url ? `https://${data.url}` : "",
+      status: readyStateToStatus(data.readyState ?? "QUEUED"),
     };
   }
 }

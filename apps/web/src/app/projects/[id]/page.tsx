@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileExplorer } from "@/components/workspace/file-explorer";
@@ -29,8 +30,10 @@ function isDeployDisabled(project: {
   return project.buildStatus !== "READY" || deploying;
 }
 
-export default function WorkspacePage({ params }: { params: { id: string } }) {
-  const { project, logs } = useProjectEvents(params.id);
+export default function WorkspacePage() {
+  const params = useParams<{ id?: string | string[] }>();
+  const projectId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const { project, logs } = useProjectEvents(projectId ?? "");
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [isDeploying, setIsDeploying] = useState(false);
 
@@ -43,7 +46,7 @@ export default function WorkspacePage({ params }: { params: { id: string } }) {
   }
 
   const files = project.files ?? [];
-  const selectedFile = files.find((f) => f.path === selectedPath) ?? files[0];
+  const selectedFile = files.find((file) => file.path === selectedPath) ?? files[0];
 
   const logEvents = logs.map((l, i) => ({
     id: String(i),

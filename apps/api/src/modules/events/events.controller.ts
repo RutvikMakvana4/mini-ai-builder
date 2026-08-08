@@ -3,7 +3,7 @@ import { eventBus, ProjectEvent } from "./event-bus";
 import { projectsStore } from "../projects/projects.store";
 
 export function streamEvents(req: Request, res: Response) {
-  const projectId = req.params.id;
+  const projectId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const project = projectsStore.findById(projectId);
   if (!project) {
     res

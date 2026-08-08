@@ -5,7 +5,8 @@ import { eventBus } from "../events/event-bus";
 import { AppError } from "../../common/errors/app-error";
 
 export async function deployProject(req: Request, res: Response, next: NextFunction) {
-  const project = projectsStore.findById(req.params.id);
+  const projectId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const project = projectsStore.findById(projectId);
   if (!project) return next(new AppError("PROJECT_NOT_FOUND", "Project not found", 404));
   if (project.buildStatus !== "READY") {
     return next(new AppError("PROJECT_NOT_BUILT", "Build the project before deploying", 400));
