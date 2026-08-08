@@ -6,6 +6,14 @@ export interface ProjectFile {
   content: string;
 }
 
+export type SandboxStatus =
+  | "NONE"
+  | "CREATING"
+  | "INSTALLING"
+  | "READY"
+  | "STOPPED"
+  | "FAILED";
+
 export interface Project {
   id: string;
   name: string;
@@ -14,4 +22,7 @@ export interface Project {
   createdAt: string;
   generationStatus: GenerationStatus;
   files: ProjectFile[];
+  sandboxId?: string;
+  sandboxStatus: SandboxStatus;
+  previewUrl?: string;
 }

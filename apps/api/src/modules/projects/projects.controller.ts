@@ -13,6 +13,7 @@ export function createProject(req: Request, res: Response, next: NextFunction) {
       prompt: input.prompt,
       model: input.model,
       createdAt: new Date().toISOString(),
+      sandboxStatus: "NONE",
       generationStatus: "IDLE",
       files: [],
     });

@@ -3,6 +3,7 @@ import cors from "cors";
 import { projectsRouter } from "./modules/projects/projects.routes";
 import { generationRouter } from "./modules/generation/generation.routes";
 import { listFiles, getFile } from "./modules/projects/files.controller";
+import { sandboxRouter } from "./modules/sandbox/sandbox.routes";
 import { errorHandler } from "./common/errors/error-handler";
 
 export function createApp() {
@@ -14,8 +15,9 @@ export function createApp() {
 
   app.use("/api/projects", projectsRouter);
   app.use("/api/projects/:id/generate", generationRouter);
+  app.use("/api/projects/:id/sandbox", sandboxRouter);
   app.get("/api/projects/:id/files", listFiles);
-  app.get("/api/projects/:id/files/:path(.*)", getFile);
+  app.get("/api/projects/:id/files/*splat", getFile);
 
   app.use(errorHandler);
   return app;
