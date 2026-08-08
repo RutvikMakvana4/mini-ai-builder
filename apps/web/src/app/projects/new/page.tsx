@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ModelSelector } from "@/components/model-selector";
 import { ModelProvider } from "@/types/project";
+import { createProject, generateProject } from "@/lib/api-client";
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -16,12 +17,16 @@ export default function NewProjectPage() {
   const [model, setModel] = useState<ModelProvider>("claude");
   const [isGenerating, setIsGenerating] = useState(false);
 
-  function handleGenerate() {
+  async function handleGenerate() {
     setIsGenerating(true);
-    // Mocked: real version will POST /api/projects then /api/projects/:id/generate
-    setTimeout(() => {
-      router.push("/projects/proj-1");
-    }, 800);
+    try {
+      const project = await createProject({ name, prompt, model });
+      await generateProject(project.id);
+      router.push(`/projects/${project.id}`);
+    } catch (err) {
+      console.error(err);
+      setIsGenerating(false);
+    }
   }
 
   return (

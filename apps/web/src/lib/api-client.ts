@@ -1,0 +1,23 @@
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+export async function createProject(input: { name: string; prompt: string; model: string }) {
+  const res = await fetch(`${API_URL}/api/projects`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error((await res.json()).error?.message ?? "Failed to create project");
+  return (await res.json()).project;
+}
+
+export async function generateProject(id: string) {
+  const res = await fetch(`${API_URL}/api/projects/${id}/generate`, { method: "POST" });
+  if (!res.ok) throw new Error((await res.json()).error?.message ?? "Generation failed");
+  return (await res.json()).project;
+}
+
+export async function getProject(id: string) {
+  const res = await fetch(`${API_URL}/api/projects/${id}`);
+  if (!res.ok) throw new Error("Project not found");
+  return (await res.json()).project;
+}
