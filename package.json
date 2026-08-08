@@ -1,0 +1,9 @@
+{
+  "name": "mini-ai-builder",
+  "private": true,
+  "scripts": {
+    "dev:web": "pnpm --filter web dev",
+    "dev:api": "pnpm --filter api dev",
+    "dev": "pnpm --parallel --filter web --filter api dev"
+  }
+}
