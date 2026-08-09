@@ -13,7 +13,6 @@ export async function runBuildPipeline(project: Project): Promise<BuildRecord> {
   const steps: BuildStepResult[] = [];
   let files: ProjectFile[] = project.files;
 
-  // Ensure a sandbox exists for this project
   let sandboxId = project.sandboxId;
   if (!sandboxId) {
     const handle = await sandboxService.create(project.id);
@@ -38,23 +37,28 @@ export async function runBuildPipeline(project: Project): Promise<BuildRecord> {
       log: install.log,
     });
 
-    let errorLog: string | undefined;
-
     if (install.exitCode !== 0) {
-      errorLog = install.log;
-    } else {
-      projectsStore.update(project.id, { buildStatus: "BUILDING" });
-      const build = await sandboxService.runBuild(sandboxId);
-      steps.push(build);
-      eventBus.emitProjectEvent(project.id, "build.log", {
-        command: build.command,
-        log: build.log,
-      });
-      if (build.exitCode !== 0) errorLog = build.log;
+      // AI cannot fix this — package.json is protected/static and AI never touches it.
+      // Retrying with an AI "repair" would be pointless; fail fast with a clear signal.
+      return failFast(
+        project.id,
+        steps,
+        install.log,
+        "Dependency install failed. This is a scaffold-level issue (invalid or unresolvable " +
+          "package.json), not something the AI can fix — check apps/api/src/services/ai/project-template.ts.",
+      );
     }
 
-    // Build (and install) succeeded — start the app and finish
-    if (!errorLog) {
+    projectsStore.update(project.id, { buildStatus: "BUILDING" });
+    const build = await sandboxService.runBuild(sandboxId);
+    steps.push(build);
+    eventBus.emitProjectEvent(project.id, "build.log", {
+      command: build.command,
+      log: build.log,
+    });
+
+    // Build succeeded — start the app and finish
+    if (build.exitCode === 0) {
       projectsStore.update(project.id, { buildStatus: "STARTING" });
       const { previewUrl } = await sandboxService.startApplication(
         sandboxId,
@@ -82,30 +86,13 @@ export async function runBuildPipeline(project: Project): Promise<BuildRecord> {
       return { status: "READY", steps, repairAttempts: attempt };
     }
 
-    // Build failed — out of repair attempts, give up
+    // Build (compile) failed — this IS something the AI can fix (app/page.tsx, components/*)
+    const errorLog = build.log;
+
     if (attempt === MAX_REPAIR_ATTEMPTS) {
-      projectsStore.update(project.id, {
-        buildStatus: "BUILD_FAILED",
-        buildError: errorLog,
-        repairAttempts: attempt,
-      });
-
-      const failedProject = projectsStore.findById(project.id);
-      eventBus.emitProjectEvent(project.id, "build.failed", {
-        error: errorLog,
-        attempt,
-        project: failedProject,
-      });
-
-      return {
-        status: "BUILD_FAILED",
-        steps,
-        error: errorLog,
-        repairAttempts: attempt,
-      };
+      return failFast(project.id, steps, errorLog, undefined, attempt);
     }
 
-    // Attempt an AI repair, then loop to rebuild with the patched files
     eventBus.emitProjectEvent(project.id, "repair.started", {
       attempt: attempt + 1,
       error: errorLog,
@@ -126,6 +113,32 @@ export async function runBuildPipeline(project: Project): Promise<BuildRecord> {
     });
   }
 
-  // Unreachable — loop always returns within MAX_REPAIR_ATTEMPTS + 1 iterations
   throw new Error("Build pipeline exited unexpectedly");
+}
+
+function failFast(
+  projectId: string,
+  steps: BuildStepResult[],
+  errorLog: string,
+  internalNote?: string,
+  repairAttempts = 0,
+): BuildRecord {
+  if (internalNote) {
+    console.error(`[build] ${internalNote}`);
+  }
+
+  projectsStore.update(projectId, {
+    buildStatus: "BUILD_FAILED",
+    buildError: errorLog,
+    repairAttempts,
+  });
+
+  const failedProject = projectsStore.findById(projectId);
+  eventBus.emitProjectEvent(projectId, "build.failed", {
+    error: errorLog,
+    attempt: repairAttempts,
+    project: failedProject,
+  });
+
+  return { status: "BUILD_FAILED", steps, error: errorLog, repairAttempts };
 }
