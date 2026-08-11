@@ -2,31 +2,55 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import { FileExplorer } from "@/components/workspace/file-explorer";
 import { CodeEditor } from "@/components/workspace/code-editor";
 import { PreviewPanel } from "@/components/workspace/preview-panel";
 import { LogsPanel } from "@/components/workspace/logs-panel";
 import { useProjectEvents } from "@/lib/use-project-events";
 import { deployProject, updateFile } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
 
 const SAVE_DEBOUNCE_MS = 800;
 
-function buildStatusVariant(
-  status: string,
-): "default" | "secondary" | "destructive" {
-  if (status === "READY") return "default";
-  if (status === "BUILD_FAILED") return "destructive";
-  return "secondary";
+function StatusPill({
+  label,
+  tone = "neutral",
+}: {
+  label: string;
+  tone?: "neutral" | "success" | "destructive" | "warning";
+}) {
+  return (
+    <span
+      className={cn(
+        "rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide",
+        tone === "success" && "bg-success/15 text-success border-success/30",
+        tone === "destructive" &&
+          "bg-destructive/15 text-destructive border-destructive/30",
+        tone === "warning" && "bg-warning/15 text-warning border-warning/30",
+        tone === "neutral" &&
+          "bg-muted text-muted-foreground border-border",
+      )}
+    >
+      {label}
+    </span>
+  );
 }
 
-function generationStatusVariant(
+function buildStatusTone(
   status: string,
-): "default" | "secondary" | "destructive" {
-  if (status === "COMPLETED") return "default";
+): "success" | "destructive" | "warning" {
+  if (status === "READY") return "success";
+  if (status === "BUILD_FAILED" || status === "FAILED") return "destructive";
+  return "warning";
+}
+
+function generationStatusTone(
+  status: string,
+): "success" | "destructive" | "warning" {
+  if (status === "COMPLETED") return "success";
   if (status === "FAILED") return "destructive";
-  return "secondary";
+  return "warning";
 }
 
 function isDeployDisabled(project: {
@@ -62,8 +86,8 @@ export default function WorkspacePage() {
 
   if (!project) {
     return (
-      <div className="flex items-center justify-center h-screen text-sm text-muted-foreground">
-        Loading...
+      <div className="flex items-center justify-center h-screen text-sm font-mono text-muted-foreground terminal-cursor">
+        loading
       </div>
     );
   }
@@ -117,53 +141,66 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col bg-background">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b">
-        <div className="flex items-center gap-3">
-          <h1 className="font-semibold">{project.name}</h1>
+      <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-sidebar">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link
+            href="/"
+            className="font-mono text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          >
+            ← projects
+          </Link>
+          <h1 className="font-semibold tracking-tight truncate">
+            {project.name}
+          </h1>
           {project.generationStatus !== "COMPLETED" && (
-            <Badge variant={generationStatusVariant(project.generationStatus)}>
-              {project.generationStatus === "GENERATING"
-                ? "Generating..."
-                : project.generationStatus}
-            </Badge>
-          )}
-          <Badge variant={buildStatusVariant(project.buildStatus)}>
-            {project.buildStatus}
-          </Badge>
-          {project.deploymentStatus !== "IDLE" && (
-            <Badge
-              variant={
-                project.deploymentStatus === "READY" ? "default" : "secondary"
+            <StatusPill
+              label={
+                project.generationStatus === "GENERATING"
+                  ? "generating"
+                  : project.generationStatus.toLowerCase()
               }
-            >
-              {project.deploymentStatus}
-            </Badge>
+              tone={generationStatusTone(project.generationStatus)}
+            />
+          )}
+          <StatusPill
+            label={project.buildStatus.toLowerCase()}
+            tone={buildStatusTone(project.buildStatus)}
+          />
+          {project.deploymentStatus !== "IDLE" && (
+            <StatusPill
+              label={project.deploymentStatus.toLowerCase()}
+              tone={
+                project.deploymentStatus === "READY" ? "success" : "warning"
+              }
+            />
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           {project.deployUrl && (
             <a
               href={project.deployUrl}
               target="_blank"
               rel="noreferrer"
-              className="text-xs text-primary underline truncate max-w-[220px]"
+              className="font-mono text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 truncate max-w-[220px] transition-colors"
             >
-              {project.deployUrl}
+              {project.deployUrl.replace("https://", "")}
             </a>
           )}
-          <Button
+          <button
+            type="button"
             disabled={isDeploying || isDeployDisabled(project)}
             onClick={handleDeploy}
+            className="rounded-full bg-primary text-primary-foreground px-4 py-1.5 text-xs font-semibold hover:bg-primary/85 transition-colors disabled:opacity-40 disabled:pointer-events-none"
           >
             {isDeploying || project.deploymentStatus === "DEPLOYING"
-              ? "Deploying..."
+              ? "deploying..."
               : project.deploymentStatus === "READY"
-                ? "Redeploy"
-                : "Deploy"}
-          </Button>
+                ? "redeploy"
+                : "deploy"}
+          </button>
         </div>
       </header>
 
@@ -174,11 +211,11 @@ export default function WorkspacePage() {
           selectedPath={selectedFile?.path ?? ""}
           onSelect={setSelectedPath}
         />
-        <div className="border-r min-h-0 relative">
+        <div className="border-r border-border min-h-0 relative">
           <CodeEditor file={selectedFile} onChange={handleFileChange} />
           {selectedFile && savingPaths[selectedFile.path] && (
-            <span className="absolute top-2 right-3 text-xs text-muted-foreground">
-              Saving...
+            <span className="absolute top-2 right-3 font-mono text-[10px] text-muted-foreground">
+              saving...
             </span>
           )}
         </div>
@@ -188,7 +225,7 @@ export default function WorkspacePage() {
       </div>
 
       {/* Logs */}
-      <div className="h-40 border-t">
+      <div className="h-40 border-t border-border">
         <LogsPanel logs={logEvents} />
       </div>
     </div>
