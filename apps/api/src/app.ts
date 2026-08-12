@@ -15,7 +15,15 @@ import { deploymentRouter } from "./modules/deployment/deployment.routes";
 
 export function createApp() {
   const app = express();
-  app.use(cors());
+
+  const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+
+  app.use(
+    cors({
+      origin: FRONTEND_URL,
+      credentials: true,
+    }),
+  );
   app.use(express.json({ limit: "5mb" }));
 
   app.get("/health", (_req, res) => res.json({ status: "ok" }));

@@ -21,14 +21,15 @@ function appendLog(sandboxId: string, chunk: string) {
 export class VercelSandboxAdapter implements SandboxAdapter {
   async create(projectId: string): Promise<SandboxHandle> {
     try {
-      // Unique per launch — lets us relaunch a fresh sandbox for the same
-      // project without colliding with a stopped/expired one of the same name.
       const name = `mini-ai-builder-${projectId}-${Date.now()}`;
       const sandbox = await Sandbox.create({
         name,
         runtime: "node24",
         ports: [PREVIEW_PORT],
-        timeout: 45 * 60 * 1000, // 45 minutes — was 15
+        timeout: 45 * 60 * 1000, // 45 min — the max allowed on Hobby plans
+        teamId: process.env.VERCEL_TEAM_ID,
+        projectId: process.env.VERCEL_PROJECT_ID,
+        token: process.env.VERCEL_TOKEN,
       });
       sandboxes.set(name, sandbox);
       logBuffers.set(name, []);
