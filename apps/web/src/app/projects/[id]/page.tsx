@@ -9,6 +9,7 @@ import { PreviewButton } from "@/components/workspace/preview-button";
 import { LogsPanel } from "@/components/workspace/logs-panel";
 import { useProjectEvents } from "@/lib/use-project-events";
 import { deployProject } from "@/lib/api-client";
+import { use } from "react";
 
 function buildStatusVariant(
   status: string,
@@ -29,8 +30,13 @@ function isDeployDisabled(project: {
   return project.buildStatus !== "READY" || deploying;
 }
 
-export default function WorkspacePage({ params }: { params: { id: string } }) {
-  const { project, logs } = useProjectEvents(params.id);
+export default function WorkspacePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
+  const { project, logs } = useProjectEvents(id);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [isDeploying, setIsDeploying] = useState(false);
   const [logsOpen, setLogsOpen] = useState(true);
