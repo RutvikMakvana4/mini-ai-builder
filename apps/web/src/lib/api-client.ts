@@ -51,3 +51,12 @@ export async function deployProject(id: string) {
     throw new Error((await res.json()).error?.message ?? "Deploy failed");
   return (await res.json()).project;
 }
+
+export async function restartBuild(id: string) {
+  const res = await fetch(`${API_URL}/api/projects/${id}/build/restart`, {
+    method: "POST",
+  });
+  if (!res.ok)
+    throw new Error((await res.json()).error?.message ?? "Restart failed");
+  return (await res.json()).project;
+}

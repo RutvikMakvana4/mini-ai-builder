@@ -3,19 +3,70 @@ import { projectsStore } from "../projects/projects.store";
 import { runBuildPipeline } from "./build.service";
 import { eventBus } from "../events/event-bus";
 import { AppError } from "../../common/errors/app-error";
+import { sandboxService } from "../../services/sandbox/sandbox-service";
 
-export async function triggerBuild(req: Request, res: Response, next: NextFunction) {
-  const projectId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+export async function triggerBuild(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  const projectId = Array.isArray(req.params.id)
+    ? req.params.id[0]
+    : req.params.id;
   const project = projectsStore.findById(projectId);
-  if (!project) return next(new AppError("PROJECT_NOT_FOUND", "Project not found", 404));
+  if (!project)
+    return next(new AppError("PROJECT_NOT_FOUND", "Project not found", 404));
   if (project.files.length === 0) {
-    return next(new AppError("NO_FILES", "Generate the project before building", 400));
+    return next(
+      new AppError("NO_FILES", "Generate the project before building", 400),
+    );
   }
 
   res.status(202).json({ project });
 
   try {
     await runBuildPipeline(project);
+  } catch (err) {
+    eventBus.emitProjectEvent(project.id, "build.failed", {
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+export async function restartBuild(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  const project = projectsStore.findById(req.params.id);
+  if (!project)
+    return next(new AppError("PROJECT_NOT_FOUND", "Project not found", 404));
+  if (project.files.length === 0) {
+    return next(
+      new AppError("NO_FILES", "Generate the project before building", 400),
+    );
+  }
+
+  // Best-effort teardown of the old (likely already-dead) sandbox — ignore failures
+  if (project.sandboxId) {
+    try {
+      await sandboxService.destroy(project.sandboxId);
+    } catch {
+      // sandbox already gone; nothing to clean up
+    }
+  }
+
+  const reset = projectsStore.update(project.id, {
+    sandboxId: undefined,
+    previewUrl: undefined,
+    buildStatus: "NOT_STARTED",
+    repairAttempts: 0,
+  });
+
+  res.status(202).json({ project: reset });
+
+  try {
+    await runBuildPipeline(reset!);
   } catch (err) {
     eventBus.emitProjectEvent(project.id, "build.failed", {
       message: err instanceof Error ? err.message : String(err),
