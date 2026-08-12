@@ -1,56 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
-import Link from "next/link";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { FileExplorer } from "@/components/workspace/file-explorer";
 import { CodeEditor } from "@/components/workspace/code-editor";
-import { PreviewPanel } from "@/components/workspace/preview-panel";
+import { PreviewButton } from "@/components/workspace/preview-button";
 import { LogsPanel } from "@/components/workspace/logs-panel";
 import { useProjectEvents } from "@/lib/use-project-events";
-import { deployProject, updateFile } from "@/lib/api-client";
-import { cn } from "@/lib/utils";
+import { deployProject } from "@/lib/api-client";
 
-const SAVE_DEBOUNCE_MS = 800;
-
-function StatusPill({
-  label,
-  tone = "neutral",
-}: {
-  label: string;
-  tone?: "neutral" | "success" | "destructive" | "warning";
-}) {
-  return (
-    <span
-      className={cn(
-        "rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide",
-        tone === "success" && "bg-success/15 text-success border-success/30",
-        tone === "destructive" &&
-          "bg-destructive/15 text-destructive border-destructive/30",
-        tone === "warning" && "bg-warning/15 text-warning border-warning/30",
-        tone === "neutral" &&
-          "bg-muted text-muted-foreground border-border",
-      )}
-    >
-      {label}
-    </span>
-  );
-}
-
-function buildStatusTone(
+function buildStatusVariant(
   status: string,
-): "success" | "destructive" | "warning" {
-  if (status === "READY") return "success";
-  if (status === "BUILD_FAILED" || status === "FAILED") return "destructive";
-  return "warning";
-}
-
-function generationStatusTone(
-  status: string,
-): "success" | "destructive" | "warning" {
-  if (status === "COMPLETED") return "success";
-  if (status === "FAILED") return "destructive";
-  return "warning";
+): "default" | "secondary" | "destructive" {
+  if (status === "READY") return "default";
+  if (status === "BUILD_FAILED") return "destructive";
+  return "secondary";
 }
 
 function isDeployDisabled(project: {
@@ -64,57 +29,22 @@ function isDeployDisabled(project: {
   return project.buildStatus !== "READY" || deploying;
 }
 
-export default function WorkspacePage() {
-  const params = useParams<{ id?: string | string[] }>();
-  const projectId = Array.isArray(params.id) ? params.id[0] : params.id;
-  const { project, logs } = useProjectEvents(projectId ?? "");
+export default function WorkspacePage({ params }: { params: { id: string } }) {
+  const { project, logs } = useProjectEvents(params.id);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [isDeploying, setIsDeploying] = useState(false);
-  // Local overrides for in-progress edits, keyed by file path. Lets typing
-  // feel instant while saves to the backend happen debounced in the background.
-  const [editedFiles, setEditedFiles] = useState<Record<string, string>>({});
-  const [savingPaths, setSavingPaths] = useState<Record<string, boolean>>({});
-  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-
-  useEffect(() => {
-    // Clear pending timers on unmount
-    const timers = saveTimers.current;
-    return () => {
-      Object.values(timers).forEach((t) => clearTimeout(t));
-    };
-  }, []);
+  const [logsOpen, setLogsOpen] = useState(true);
 
   if (!project) {
     return (
-      <div className="flex items-center justify-center h-screen text-sm font-mono text-muted-foreground terminal-cursor">
-        loading
+      <div className="flex items-center justify-center h-screen text-sm text-muted-foreground">
+        Loading...
       </div>
     );
   }
 
-  const files = (project.files ?? []).map((file) =>
-    editedFiles[file.path] !== undefined
-      ? { ...file, content: editedFiles[file.path] }
-      : file,
-  );
-  const selectedFile =
-    files.find((file) => file.path === selectedPath) ?? files[0];
-
-  function handleFileChange(path: string, content: string) {
-    setEditedFiles((prev) => ({ ...prev, [path]: content }));
-
-    if (saveTimers.current[path]) clearTimeout(saveTimers.current[path]);
-    saveTimers.current[path] = setTimeout(async () => {
-      setSavingPaths((prev) => ({ ...prev, [path]: true }));
-      try {
-        await updateFile(project!.id, path, content);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setSavingPaths((prev) => ({ ...prev, [path]: false }));
-      }
-    }, SAVE_DEBOUNCE_MS);
-  }
+  const files = project.files ?? [];
+  const selectedFile = files.find((f) => f.path === selectedPath) ?? files[0];
 
   const logEvents = logs.map((l, i) => ({
     id: String(i),
@@ -132,7 +62,6 @@ export default function WorkspacePage() {
     setIsDeploying(true);
     try {
       await deployProject(project!.id);
-      // Live status updates arrive via SSE (deployment.* events)
     } catch (err) {
       console.error(err);
     } finally {
@@ -141,93 +70,87 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <div className="h-screen flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-sidebar">
+      <header className="flex items-center justify-between px-4 py-3 border-b">
         <div className="flex items-center gap-3 min-w-0">
-          <Link
-            href="/"
-            className="font-mono text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
-          >
-            ← projects
-          </Link>
-          <h1 className="font-semibold tracking-tight truncate">
-            {project.name}
-          </h1>
-          {project.generationStatus !== "COMPLETED" && (
-            <StatusPill
-              label={
-                project.generationStatus === "GENERATING"
-                  ? "generating"
-                  : project.generationStatus.toLowerCase()
-              }
-              tone={generationStatusTone(project.generationStatus)}
-            />
-          )}
-          <StatusPill
-            label={project.buildStatus.toLowerCase()}
-            tone={buildStatusTone(project.buildStatus)}
-          />
+          <h1 className="font-semibold truncate">{project.name}</h1>
+          <Badge variant={buildStatusVariant(project.buildStatus)}>
+            {project.buildStatus}
+          </Badge>
           {project.deploymentStatus !== "IDLE" && (
-            <StatusPill
-              label={project.deploymentStatus.toLowerCase()}
-              tone={
-                project.deploymentStatus === "READY" ? "success" : "warning"
+            <Badge
+              variant={
+                project.deploymentStatus === "READY" ? "default" : "secondary"
               }
-            />
+            >
+              {project.deploymentStatus}
+            </Badge>
           )}
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {project.deployUrl && (
             <a
               href={project.deployUrl}
               target="_blank"
               rel="noreferrer"
-              className="font-mono text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 truncate max-w-[220px] transition-colors"
+              className="text-xs text-primary underline truncate max-w-[180px]"
             >
-              {project.deployUrl.replace("https://", "")}
+              {project.deployUrl}
             </a>
           )}
-          <button
-            type="button"
+          <PreviewButton
+            projectId={project.id}
+            buildStatus={project.buildStatus}
+            previewUrl={project.previewUrl}
+          />
+          <Button
             disabled={isDeploying || isDeployDisabled(project)}
             onClick={handleDeploy}
-            className="rounded-full bg-primary text-primary-foreground px-4 py-1.5 text-xs font-semibold hover:bg-primary/85 transition-colors disabled:opacity-40 disabled:pointer-events-none"
           >
             {isDeploying || project.deploymentStatus === "DEPLOYING"
-              ? "deploying..."
+              ? "Deploying..."
               : project.deploymentStatus === "READY"
-                ? "redeploy"
-                : "deploy"}
-          </button>
+                ? "Redeploy"
+                : "Deploy"}
+          </Button>
         </div>
       </header>
 
-      {/* Main 3-pane workspace */}
-      <div className="flex-1 grid grid-cols-[220px_1fr_1fr] min-h-0">
+      {/* Main 2-pane workspace */}
+      <div className="flex-1 grid grid-cols-[240px_1fr] min-h-0">
         <FileExplorer
           files={files}
           selectedPath={selectedFile?.path ?? ""}
           onSelect={setSelectedPath}
+          generationStatus={project.generationStatus}
+          buildStatus={project.buildStatus}
         />
-        <div className="border-r border-border min-h-0 relative">
-          <CodeEditor file={selectedFile} onChange={handleFileChange} />
-          {selectedFile && savingPaths[selectedFile.path] && (
-            <span className="absolute top-2 right-3 font-mono text-[10px] text-muted-foreground">
-              saving...
-            </span>
-          )}
-        </div>
         <div className="min-h-0">
-          <PreviewPanel previewUrl={project.previewUrl} />
+          <CodeEditor file={selectedFile} />
         </div>
       </div>
 
-      {/* Logs */}
-      <div className="h-40 border-t border-border">
-        <LogsPanel logs={logEvents} />
+      {/* Collapsible logs */}
+      <div className={cnLogsHeight(logsOpen)}>
+        <button
+          onClick={() => setLogsOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-medium bg-muted/50 border-t"
+        >
+          <span>Build Logs</span>
+          <span>{logsOpen ? "Hide ▾" : "Show ▴"}</span>
+        </button>
+        {logsOpen && (
+          <div className="h-40">
+            <LogsPanel logs={logEvents} />
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+function cnLogsHeight(open: boolean) {
+  return open ? "shrink-0" : "shrink-0";
 }
