@@ -2,13 +2,27 @@ import { Request, Response, NextFunction } from "express";
 import { projectsStore } from "../projects/projects.store";
 import { sandboxService } from "../../services/sandbox/sandbox-service";
 import { AppError } from "../../common/errors/app-error";
+import { ProjectParams } from "../../common/types/http";
 
-export async function createSandbox(req: Request, res: Response, next: NextFunction) {
-  const projectId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+export async function createSandbox(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  const projectId = Array.isArray(req.params.id)
+    ? req.params.id[0]
+    : req.params.id;
   const project = projectsStore.findById(projectId);
-  if (!project) return next(new AppError("PROJECT_NOT_FOUND", "Project not found", 404));
+  if (!project)
+    return next(new AppError("PROJECT_NOT_FOUND", "Project not found", 404));
   if (project.files.length === 0) {
-    return next(new AppError("NO_FILES", "Generate the project before creating a sandbox", 400));
+    return next(
+      new AppError(
+        "NO_FILES",
+        "Generate the project before creating a sandbox",
+        400,
+      ),
+    );
   }
 
   try {
@@ -28,11 +42,16 @@ export async function createSandbox(req: Request, res: Response, next: NextFunct
   }
 }
 
-export async function destroySandbox(req: Request, res: Response, next: NextFunction) {
-  const projectId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const project = projectsStore.findById(projectId);
-  if (!project) return next(new AppError("PROJECT_NOT_FOUND", "Project not found", 404));
-  if (!project.sandboxId) return next(new AppError("NO_SANDBOX", "No active sandbox", 400));
+export async function destroySandbox(
+  req: Request<ProjectParams>,
+  res: Response,
+  next: NextFunction,
+) {
+  const project = projectsStore.findById(req.params.id);
+  if (!project)
+    return next(new AppError("PROJECT_NOT_FOUND", "Project not found", 404));
+  if (!project.sandboxId)
+    return next(new AppError("NO_SANDBOX", "No active sandbox", 400));
 
   try {
     await sandboxService.destroy(project.sandboxId);

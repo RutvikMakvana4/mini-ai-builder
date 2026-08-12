@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
 import { eventBus, ProjectEvent } from "./event-bus";
 import { projectsStore } from "../projects/projects.store";
+import { ProjectParams } from "../../common/types/http";
 
-export function streamEvents(req: Request, res: Response) {
-  const projectId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+export function streamEvents(req: Request<ProjectParams>, res: Response) {
+  const projectId = req.params.id;
   const project = projectsStore.findById(projectId);
   if (!project) {
     res
@@ -26,7 +27,6 @@ export function streamEvents(req: Request, res: Response) {
     res.write(`data: ${JSON.stringify(event)}\n\n`);
   };
 
-  // Initial snapshot so late-connecting clients get current state immediately
   send({
     type: "snapshot",
     timestamp: new Date().toISOString(),
@@ -35,7 +35,6 @@ export function streamEvents(req: Request, res: Response) {
 
   const unsubscribe = eventBus.subscribe(projectId, send);
 
-  // Keep-alive ping every 20s so proxies/browsers don't time out the connection
   const heartbeat = setInterval(() => res.write(": ping\n\n"), 20000);
 
   req.on("close", () => {
