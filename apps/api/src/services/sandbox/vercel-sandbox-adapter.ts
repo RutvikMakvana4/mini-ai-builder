@@ -111,8 +111,43 @@ export class VercelSandboxAdapter implements SandboxAdapter {
       args: ["run", "start", "--", "-p", String(port)],
       detached: true,
     });
+
+    const previewUrl = sandbox.domain(port);
+    await this.waitUntilListening(sandboxId, previewUrl);
+
     appendLog(sandboxId, `Started application on port ${port}`);
-    return { previewUrl: sandbox.domain(port) };
+    return { previewUrl };
+  }
+
+  private async waitUntilListening(
+    sandboxId: string,
+    url: string,
+    timeoutMs = 30_000,
+    intervalMs = 1500,
+  ): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+      try {
+        const res = await fetch(url, { method: "GET" });
+        if (res.status < 500) {
+          return; // reachable — even a 404 means the server is up and responding
+        }
+      } catch {
+        // not listening yet, keep polling
+      }
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+
+    appendLog(
+      sandboxId,
+      `App did not start listening on port within ${timeoutMs / 1000}s`,
+    );
+    throw new AppError(
+      "SANDBOX_NOT_LISTENING",
+      "App did not start listening on the requested port in time",
+      502,
+    );
   }
 
   getLogs(sandboxId: string): string[] {

@@ -4,6 +4,7 @@ import { aiService } from "../../services/ai";
 import { eventBus } from "../events/event-bus";
 import { AppError } from "../../common/errors/app-error";
 import { ProjectParams } from "../../common/types/http";
+import { runBuildPipeline } from "../build/build.service";
 
 export async function generateProject(
   req: Request<ProjectParams>,
@@ -32,6 +33,17 @@ export async function generateProject(
       fileCount: result.files.length,
       project: updated,
     });
+
+    // Generation succeeded — automatically kick off the build pipeline so the
+    // user doesn't have to manually trigger a separate /build request.
+    try {
+      await runBuildPipeline(updated!);
+    } catch (buildErr) {
+      eventBus.emitProjectEvent(project.id, "build.failed", {
+        message:
+          buildErr instanceof Error ? buildErr.message : String(buildErr),
+      });
+    }
   } catch (err) {
     projectsStore.update(project.id, { generationStatus: "FAILED" });
     eventBus.emitProjectEvent(project.id, "generation.failed", {

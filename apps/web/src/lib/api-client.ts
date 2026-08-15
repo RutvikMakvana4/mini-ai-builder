@@ -60,3 +60,9 @@ export async function restartBuild(id: string) {
     throw new Error((await res.json()).error?.message ?? "Restart failed");
   return (await res.json()).project;
 }
+
+export async function listProjects() {
+  const res = await fetch(`${API_URL}/api/projects`);
+  if (!res.ok) throw new Error("Failed to load projects");
+  return (await res.json()).projects;
+}
