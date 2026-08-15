@@ -17,17 +17,17 @@ export function ModelSelector({
   onChange: (model: ModelProvider) => void;
 }) {
   return (
-    <div className="inline-flex items-center gap-0.5 rounded-full border border-border p-0.5">
+    <div className="flex gap-1.5">
       {MODELS.map((model) => (
         <button
           key={model.id}
           type="button"
           onClick={() => onChange(model.id)}
           className={cn(
-            "rounded-full px-3 py-1 font-mono text-xs transition-colors",
+            "px-4 py-1.5 rounded-full text-xs font-medium transition-colors",
             value === model.id
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground",
+              ? "bg-zinc-200 text-black"
+              : "text-zinc-500 hover:text-zinc-300",
           )}
         >
           {model.label}
